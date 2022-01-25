@@ -3,7 +3,7 @@ usage:
 	@echo "make test      : Runs test suite"
 	@echo "make bench     : Runs benchmarks"
 	@echo "make example   : Runs example"
-	@echo "make travis-ci : Travis CI specific testing"
+	@echo "make ci        : CI specific testing"
 	@echo "make cpu-pprof : Runs pprof on the cpu profile from make bench
 	@echo "make mem-pprof : Runs pprof on the memory profile from make bench
 
@@ -20,7 +20,7 @@ bench:
 example:
 	go test ./... -run=Example
 
-travis-ci:
+ci:
 	go test -v ./... -race -coverprofile=coverage.txt -covermode=atomic
 
 cpu-pprof:
