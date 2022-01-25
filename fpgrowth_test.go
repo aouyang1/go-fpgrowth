@@ -15,7 +15,7 @@ func TestNew(t *testing.T) {
 		t.Errorf("expected, %.3f, for min support but got %.3f", minSupport, fpg.MinSupport)
 		return
 	}
-	if err := sameNode(fpg.tree, newNode("__root__")); err != nil {
+	if err := sameNode(fpg.tree, newNode(RootName)); err != nil {
 		t.Error(err)
 		return
 	}
@@ -39,7 +39,7 @@ func TestInsert(t *testing.T) {
 		return
 	}
 	for _, tr := range transactions {
-		if err := fpg.Insert(tr); err != nil {
+		if err := fpg.insert(tr); err != nil {
 			t.Error(err)
 			return
 		}
@@ -98,37 +98,7 @@ func TestInsert(t *testing.T) {
 	}
 }
 
-func TestFrequentItemsGetSorted(t *testing.T) {
-	transactions := testTransactions()
-
-	fpg, err := New(0.09)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	for _, tr := range transactions {
-		if err := fpg.Insert(tr); err != nil {
-			t.Error(err)
-			return
-		}
-	}
-
-	fi := fpg.frequentItems.getSorted(fpg.MinSupport)
-	expected := []string{"f", "c", "p", "m", "b", "a"}
-	if len(fi) != len(expected) {
-		t.Errorf("expected %d items, but got %d", len(expected), len(fi))
-		return
-	}
-
-	for i, item := range expected {
-		if fi[i] != item {
-			t.Errorf("expected item %s at index %d, but got %s", item, i, fi[i])
-			return
-		}
-	}
-}
-
-func TestBuildTree(t *testing.T) {
+func TestFit(t *testing.T) {
 	transactions := testTransactions()
 
 	fpg, err := New(0.09) // permits a count of 3 or more
@@ -136,16 +106,13 @@ func TestBuildTree(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	for _, tr := range transactions {
-		if err := fpg.Insert(tr); err != nil {
-			t.Error(err)
-			return
-		}
+	if err := fpg.Fit(transactions); err != nil {
+		t.Error(err)
+		return
 	}
-	fpg.BuildTree()
 
 	expectedTree := &node{
-		item:  "__root__",
+		item:  RootName,
 		count: 0,
 		children: map[string]*node{
 			"f": {"f", 4, nil, nil,
@@ -189,5 +156,34 @@ func TestBuildTree(t *testing.T) {
 
 	if err := compareTree(expectedTree, fpg.tree); err != nil {
 		t.Error(err)
+		return
+	}
+
+	expectedHeader := map[string][]int{
+		"f": {4},
+		"c": {3, 1},
+		"p": {2, 1},
+		"m": {2, 1},
+		"b": {1, 1, 1},
+		"a": {2, 1},
+	}
+
+	for item, counts := range expectedHeader {
+		node := fpg.frequentItems.cnt[item].head
+		for _, cnt := range counts {
+			if node == nil {
+				t.Errorf("expected initialization of header for item, %s", item)
+				return
+			}
+			if node.count != cnt {
+				t.Errorf("expected count, %d, for item, %s, but got %d", counts, item, node.count)
+				return
+			}
+			node = node.next
+		}
+		if node != nil {
+			t.Errorf("expected no more links for item, %s, but got, %v", item, node)
+			return
+		}
 	}
 }
