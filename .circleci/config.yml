@@ -22,6 +22,10 @@ jobs:
           name: Run tests
           command: |
             make ci
+      - run:
+          name: Upload Code Coverage
+          command: |
+            bash <(curl -s https://codecov.io/bash)
 
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
