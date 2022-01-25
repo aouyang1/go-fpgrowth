@@ -2,6 +2,7 @@ package fpgrowth
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 )
 
@@ -13,7 +14,7 @@ var (
 type FPGrowth struct {
 	MinSupport float64
 
-	frequentItems frequentItems
+	frequentItems *frequentItems
 	transactions  []*Transaction // list of all transactions
 	tree          *node
 }
@@ -23,10 +24,10 @@ func New(minSupport float64) (*FPGrowth, error) {
 		return nil, ErrInvalidMinSupport
 	}
 
-	root := newNode("__root__")
 	return &FPGrowth{
-		MinSupport: minSupport,
-		tree:       root,
+		MinSupport:    minSupport,
+		tree:          newNode("__root__"),
+		frequentItems: newFrequentItems(),
 	}, nil
 }
 
@@ -55,7 +56,7 @@ func (f *FPGrowth) BuildTree() {
 			}
 			nextNode, ok := currNode.children[i]
 			if !ok {
-				nextNode := newNode(i)
+				nextNode = newNode(i)
 				currNode.children[i] = nextNode
 				nextNode.parents[currNode.item] = currNode
 			}
@@ -69,6 +70,12 @@ type frequentItems struct {
 	n          int                           // number of items stored
 	cnt        map[string]*frequentItemCount // tracks most frequent items of all transactions
 	itemCounts itemCounts                    // item names sorted by most frequent
+}
+
+func newFrequentItems() *frequentItems {
+	return &frequentItems{
+		cnt: make(map[string]*frequentItemCount),
+	}
 }
 
 func (f *frequentItems) reset() {
@@ -94,28 +101,36 @@ func (f *frequentItems) get(item string) int {
 	return 0
 }
 
+// return a sorted list of items based on high frequency and limited to min support
 func (f *frequentItems) getSorted(minSupport float64) []string {
 	if minSupport < 0 {
 		minSupport = 0
 	} else if minSupport > 1 {
 		minSupport = 1
 	}
-	minCnt := int(minSupport * float64(f.n))
+	minCnt := minSupport * float64(f.n)
 
 	f.itemCounts = f.itemCounts[:0]
 	for itemName, fic := range f.cnt {
-		if fic.count >= minCnt {
+		if float64(fic.count) >= minCnt {
 			f.itemCounts = append(f.itemCounts, itemCount{itemName, fic.count})
 		}
 	}
 	sort.Slice(f.itemCounts, func(i, j int) bool {
-		return f.itemCounts[i].count > f.itemCounts[j].count
+		if f.itemCounts[i].count > f.itemCounts[j].count {
+			return true
+		}
+		if f.itemCounts[i].count < f.itemCounts[j].count {
+			return false
+		}
+		return f.itemCounts[i].name > f.itemCounts[j].name
 	})
 
-	items := make([]string, len(f.itemCounts))
+	items := make([]string, 0, len(f.itemCounts))
 	for _, ic := range f.itemCounts {
 		items = append(items, ic.name)
 	}
+
 	return items
 }
 
@@ -156,6 +171,64 @@ type node struct {
 func newNode(item string) *node {
 	return &node{
 		item:     item,
+		parents:  make(map[string]*node),
 		children: make(map[string]*node),
 	}
+}
+
+func sameNode(a, b *node) error {
+	if a == nil && b != nil {
+		return errors.New("first argument is nil")
+	}
+	if a != nil && b == nil {
+		return errors.New("second argument is nil")
+	}
+	if a == nil && b == nil {
+		return nil
+	}
+	if a.item != b.item {
+		return fmt.Errorf("expected item: %s, but got %s", a.item, b.item)
+	}
+	if a.count != b.count {
+		return fmt.Errorf("expected count: %d, but got %d", a.count, b.count)
+	}
+	if len(a.parents) != len(b.parents) {
+		return fmt.Errorf("expected parents map of size, %d, but got %d", len(a.parents), len(b.parents))
+	}
+	if len(a.children) != len(b.children) {
+		return fmt.Errorf("expected children map of size, %d, but got %d", len(a.children), len(b.children))
+	}
+	return nil
+}
+
+// does a depth first search and compares node by node
+func compareTree(a, b *node) error {
+	if a == nil && b != nil {
+		return errors.New("first argument is nil")
+	}
+	if a != nil && b == nil {
+		return errors.New("second argument is nil")
+	}
+	if a == nil && b == nil {
+		return nil
+	}
+	if a.item != b.item {
+		return fmt.Errorf("expected item, %s, but got, %s", a.item, b.item)
+	}
+	if a.count != b.count {
+		return fmt.Errorf("expected count, %d, for item, %s, but got %d", a.count, a.item, b.count)
+	}
+	if len(a.children) != len(b.children) {
+		return fmt.Errorf("expected %d children, %v but got, %d, %v", len(a.children), a.children, len(b.children), b.children)
+	}
+	for item, node := range a.children {
+		resnode, exists := b.children[item]
+		if !exists {
+			return fmt.Errorf("did not find item, %s, %v", item, b.children)
+		}
+		if err := compareTree(node, resnode); err != nil {
+			return err
+		}
+	}
+	return nil
 }
