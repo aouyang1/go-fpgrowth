@@ -9,14 +9,13 @@ type node struct {
 	item     string
 	count    int
 	next     *node // points to another node with the same item name
-	parents  map[string]*node
+	parent   *node
 	children map[string]*node
 }
 
 func newNode(item string) *node {
 	return &node{
 		item:     item,
-		parents:  make(map[string]*node),
 		children: make(map[string]*node),
 	}
 }
@@ -37,9 +36,22 @@ func sameNode(a, b *node) error {
 	if a.count != b.count {
 		return fmt.Errorf("expected count: %d, but got %d", a.count, b.count)
 	}
-	if len(a.parents) != len(b.parents) {
-		return fmt.Errorf("expected parents map of size, %d, but got %d", len(a.parents), len(b.parents))
+	if a.parent == nil && b.parent != nil {
+		return errors.New("first argument parent is nil")
 	}
+	if a.parent != nil && b.parent == nil {
+		return errors.New("second argument parent is nil")
+	}
+	if a.parent == nil && b.parent == nil {
+		return nil
+	}
+	if a.parent.item != b.parent.item {
+		return fmt.Errorf("expected parent item: %s, but got %s", a.item, b.item)
+	}
+	if a.parent.count != b.parent.count {
+		return fmt.Errorf("expected parent count: %d, but got %d", a.count, b.count)
+	}
+
 	if len(a.children) != len(b.children) {
 		return fmt.Errorf("expected children map of size, %d, but got %d", len(a.children), len(b.children))
 	}

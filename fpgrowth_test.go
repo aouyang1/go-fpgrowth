@@ -186,4 +186,152 @@ func TestFit(t *testing.T) {
 			return
 		}
 	}
+
+	expectedPatternBases := []*patternBase{
+		{"f", []itemCount{}},
+		{"c", []itemCount{{"f", 3}}},
+		{"p", []itemCount{{"c", 3}}},
+		{"m", []itemCount{{"f", 3}, {"c", 3}}},
+		{"b", []itemCount{}},
+		{"a", []itemCount{{"f", 3}, {"c", 3}, {"m", 3}}},
+	}
+	if len(expectedPatternBases) != len(fpg.patternBases) {
+		t.Errorf("expected %d pattern bases, but got %d", len(expectedPatternBases), len(fpg.patternBases))
+		return
+	}
+	for i, pb := range fpg.patternBases {
+		epb := expectedPatternBases[i]
+		if pb.Item != epb.Item {
+			t.Errorf("expected %s, but got %s for index, %d", epb.Item, pb.Item, i)
+		}
+		if len(pb.SubPatternBase) != len(epb.SubPatternBase) {
+			t.Errorf("expected sub pattern base length of %d, but got %d for index, %d", len(epb.SubPatternBase), len(pb.SubPatternBase), i)
+			continue
+		}
+		for j, item := range epb.SubPatternBase {
+			if item.name != pb.SubPatternBase[j].name {
+				t.Errorf("expected item, %s, but got %s, for index %d", item.name, pb.SubPatternBase[j].name, j)
+			}
+			if item.count != pb.SubPatternBase[j].count {
+				t.Errorf("expected count, %d, but got %d, for index %d", item.count, pb.SubPatternBase[j].count, j)
+			}
+
+		}
+	}
+}
+
+func TestFindPrefixPath(t *testing.T) {
+	testData := []struct {
+		n        *node
+		expected []string
+	}{
+		{
+			&node{item: "a", parent: &node{item: "b", parent: &node{item: "c"}}},
+			[]string{"c", "b", "a"},
+		},
+		{
+			&node{item: "a", parent: &node{item: "b", parent: &node{item: "c", parent: &node{item: RootName}}}},
+			[]string{"c", "b", "a"},
+		},
+		{
+			nil,
+			[]string{},
+		},
+	}
+
+	for _, td := range testData {
+		res := findPrefixPath(td.n)
+		if len(res) != len(td.expected) {
+			t.Errorf("expected %d but got %d", len(td.expected), len(res))
+			break
+		}
+		for i, item := range res {
+			if item != td.expected[i] {
+				t.Errorf("expected %s at index %d, but got %s", td.expected[i], i, item)
+			}
+		}
+	}
+}
+
+func TestConditionalPatternBases(t *testing.T) {
+	transactions := testTransactions()
+
+	fpg, err := New(0.09) // permits a count of 3 or more
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if err := fpg.Fit(transactions); err != nil {
+		t.Error(err)
+		return
+	}
+
+	item := fpg.frequentItems.itemCounts[len(fpg.frequentItems.itemCounts)-1].name
+	expected := [][]itemCount{
+		{{"f", 2}, {"c", 2}, {"p", 2}, {"m", 2}},
+		{{"f", 1}, {"c", 1}, {"m", 1}, {"b", 1}},
+	}
+	cpb := fpg.conditionalPatternBases(item)
+	if len(expected) != len(cpb) {
+		t.Errorf("expected %d conditional base patterns, but got %d", len(expected), len(cpb))
+		return
+	}
+	for i, pb := range cpb {
+		if len(pb) != len(expected[i]) {
+			t.Errorf("expected %d conditional pattern base items, but got %d", len(expected[i]), len(pb))
+			break
+		}
+		for j, item := range pb {
+			if item.name != expected[i][j].name {
+				t.Errorf("expected %s, at index %d, but got %s", expected[i][j].name, j, item.name)
+				break
+			}
+			if item.count != expected[i][j].count {
+				t.Errorf("expected %d, at index %d, but got %d", expected[i][j].count, j, item.count)
+				break
+			}
+		}
+	}
+}
+
+func TestIntersectConditionalPatternBases(t *testing.T) {
+	testData := []struct {
+		cpb      [][]itemCount
+		expected []itemCount
+	}{
+		{
+			[][]itemCount{
+				{{"a", 3}, {"b", 3}, {"c", 3}, {"d", 3}},
+				{{"b", 2}, {"d", 2}},
+			},
+			[]itemCount{{"b", 5}, {"d", 5}},
+		},
+		{
+			[][]itemCount{},
+			[]itemCount{},
+		},
+		{
+			[][]itemCount{
+				{{"a", 2}, {"b", 2}, {"c", 2}, {"d", 2}},
+			},
+			[]itemCount{{"a", 2}, {"b", 2}, {"c", 2}, {"d", 2}},
+		},
+	}
+
+	for _, td := range testData {
+		res := intersectConditionalPatternBases(td.cpb)
+		if len(res) != len(td.expected) {
+			t.Errorf("expected %d, but got %d", len(td.expected), len(res))
+			break
+		}
+		for i, item := range td.expected {
+			if item.name != res[i].name {
+				t.Errorf("expected %s, at index %d, but got %s", item.name, i, res[i].name)
+			}
+			if item.count != res[i].count {
+				t.Errorf("expected %d, at index %d, but got %d", item.count, i, res[i].count)
+			}
+
+		}
+	}
 }
