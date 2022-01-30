@@ -187,7 +187,7 @@ func TestFit(t *testing.T) {
 		}
 	}
 
-	expectedPatternBases := []*patternBase{
+	expectedPatternBases := []*PatternBase{
 		{"f", []itemCount{}},
 		{"c", []itemCount{{"f", 3}}},
 		{"p", []itemCount{{"c", 3}}},

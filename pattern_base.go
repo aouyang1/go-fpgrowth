@@ -2,11 +2,11 @@ package fpgrowth
 
 import "fmt"
 
-type patternBase struct {
+type PatternBase struct {
 	Item           string
 	SubPatternBase []itemCount
 }
 
-func (p *patternBase) String() string {
+func (p *PatternBase) String() string {
 	return fmt.Sprintf("item: %s, subpattern: %v", p.Item, p.SubPatternBase)
 }

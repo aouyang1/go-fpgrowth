@@ -17,7 +17,7 @@ type FPGrowth struct {
 	transactions  []*Transaction // list of all transactions
 	tree          *node
 
-	patternBases []*patternBase // stores pattern bases for each frequent item from most frequent to least
+	patternBases []*PatternBase // stores pattern bases for each frequent item from most frequent to least
 }
 
 func New(minSupport float64) (*FPGrowth, error) {
@@ -39,17 +39,21 @@ func (f *FPGrowth) Fit(t []*Transaction) error {
 		}
 	}
 	f.buildTree()
-	f.patternBases = make([]*patternBase, len(f.frequentItems.itemCounts))
+	f.patternBases = make([]*PatternBase, len(f.frequentItems.itemCounts))
 	for i := len(f.frequentItems.itemCounts) - 1; i >= 0; i-- {
 		ic := f.frequentItems.itemCounts[i]
 		cpb := f.conditionalPatternBases(ic.name)
 		subpb := intersectConditionalPatternBases(cpb)
-		f.patternBases[i] = &patternBase{
+		f.patternBases[i] = &PatternBase{
 			Item:           ic.name,
 			SubPatternBase: subpb,
 		}
 	}
 	return nil
+}
+
+func (f *FPGrowth) PatternBases() []*PatternBase {
+	return f.patternBases
 }
 
 func (f *FPGrowth) insert(t *Transaction) error {
